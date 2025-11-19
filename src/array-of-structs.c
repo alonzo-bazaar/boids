@@ -1,0 +1,261 @@
+#include<stdio.h>   // print debugging
+#include<stdlib.h>  // to create random numbers
+#include<limits.h>  // to scale the random number in question
+#include<math.h>    // for sqrt
+
+#include"raylib.h"  // for the graphics
+#include"common.h"
+
+typedef struct {
+	float curr_x; // position read during simulation tick
+	float curr_y;
+	float next_x; // position written during simulation tick
+	float next_y;
+
+	float curr_dx; // velocity read during simulation tick
+	float curr_dy;
+	float next_dx; // velocity written during simulatin tick
+	float next_dy;
+} boid;
+
+float random_uniform(float min, float max) {
+    float random_normalized = (float)random() / (float)INT_MAX;
+    return (random_normalized * (max - min)) + min;
+}
+
+// randomize initial state of boids
+// (better not to try my luck with parallelizing C random)
+void randomize_boids(size_t nboids, boid bs[nboids]) {
+    float speed_comp_limit = speed_upper_bound/sqrt(2.0);
+    for(size_t i = 0; i< nboids; ++i) {
+        bs[i].curr_x = random_uniform(turnback_margin,
+									 window_width - turnback_margin);
+        bs[i].curr_y = random_uniform(turnback_margin,
+									 window_height - turnback_margin);
+        bs[i].next_x = bs[i].curr_x;
+		bs[i].next_y = bs[i].curr_x;
+
+        bs[i].curr_dx = random_uniform(-speed_comp_limit, speed_comp_limit);
+        bs[i].curr_dy = random_uniform(-speed_comp_limit, speed_comp_limit);
+        bs[i].next_dx = bs[i].curr_dx;
+        bs[i].next_dy = bs[i].curr_dx;
+    }
+}
+
+// compute position that boid will have during next simulation tick 
+
+// reads:  curr_x, curr_y, curr_dx, curr_dy
+// writes: next_x, next_y
+void boid_compute_position(boid* b) {
+	b->next_x = b->curr_x + b->curr_dx;
+	b->next_y = b->curr_y + b->curr_dy;
+}
+
+// update a single boids's speed within a boid vector
+// I apologize for this function being rather gigantic
+// I wanted to merge as many loops as possible
+// to have an easier time experimenting with parallelization strats
+
+// reads:  curr_x, curr_y, curr_dx, curr_dy
+// writes: next_dx, next_dy
+void boid_compute_velocity(size_t i, size_t nboids, boid boids[nboids]) {
+	// data to be computed only after having scanned all neighbours
+	// neighbourhood centroid
+	float center_x = 0.0;
+	float center_y = 0.0;
+
+	// average neighbourhood speed
+	float avg_neigh_dx = 0.0;
+	float avg_neigh_dy = 0.0;
+
+	int n_neighbours = 0;
+
+	// replusive force to apply to boid to avoid it crashing on its neighbours
+	float repulse_x = 0.0;
+	float repulse_y = 0.0;
+
+	// data collection
+	for(size_t j = 0; j<nboids; ++j) {
+		if(j!=i) {
+			float dx = boids[i].curr_x - boids[j].curr_x;
+			float dy = boids[i].curr_y - boids[j].curr_y;
+			float dist = sqrt((dx*dx) + (dy*dy));
+
+			if(dist < too_close_radius) {
+				repulse_x += dx;
+				repulse_y += dy;
+			}
+
+			if(dist < neighbour_radius) {
+				avg_neigh_dx += boids[j].curr_dx;
+				avg_neigh_dy += boids[j].curr_dy;
+
+				center_x += boids[j].curr_x;
+				center_y += boids[j].curr_y;
+
+				n_neighbours++;
+			}
+		}
+	}
+
+	if(n_neighbours > 0) {
+		center_x/=n_neighbours;
+		center_y/=n_neighbours;
+		avg_neigh_dx/=n_neighbours;
+		avg_neigh_dy/=n_neighbours;
+	}
+
+	// speed update
+	// the following operations will all act on the boid's speed alone
+	// "make boid do this" here means
+	// "update boid speed in a way that will make it go towards doing this"
+
+	// velocity starting point
+	boids[i].next_dx = boids[i].curr_dx;
+	boids[i].next_dy = boids[i].curr_dy;
+
+	// make boid center itself with respect to its neighbours
+	if(n_neighbours > 0) {
+		boids[i].next_dx += (center_x - boids[i].curr_x) * centering_factor;
+		boids[i].next_dy += (center_y - boids[i].curr_y) * centering_factor;
+	}
+
+	// make boid avoid collisions
+	boids[i].next_dx += repulse_x * dont_slam_factor;
+	boids[i].next_dy += repulse_y * dont_slam_factor;
+
+	// make boid go at the same speed as its neighbours
+	if(n_neighbours > 0) {
+		boids[i].next_dx += (avg_neigh_dx - boids[i].curr_dx) * speed_match_factor;
+		boids[i].next_dy += (avg_neigh_dy - boids[i].curr_dy) * speed_match_factor;
+	}
+
+	// make boid stay within window bounds
+	if(boids[i].curr_x > window_width - turnback_margin)
+		boids[i].next_dx -= turnback_factor;
+	if(boids[i].curr_y > window_height - turnback_margin)
+		boids[i].next_dy -= turnback_factor;
+
+	if(boids[i].curr_x < turnback_margin)
+		boids[i].next_dx += turnback_factor;
+	if(boids[i].curr_y < turnback_margin)
+		boids[i].next_dy += turnback_factor;
+
+	// clamp boid acceleration within an acceptable range
+	float ax = boids[i].next_dx - boids[i].curr_dx;
+	float ay = boids[i].next_dy - boids[i].curr_dy;
+	float a = sqrt(ax*ax + ay*ay);
+	if(a > acceleration_upper_bound) {
+		ax*=acceleration_upper_bound/a;
+		ay*=acceleration_upper_bound/a;
+
+		boids[i].next_dx = boids[i].curr_dx+ax;
+		boids[i].next_dy = boids[i].curr_dy+ay;
+	}
+
+ 	// clamp boid speed within an acceptable range
+ 	float v = sqrt(boids[i].next_dx*boids[i].next_dx + 
+ 				   boids[i].next_dy*boids[i].next_dy);
+ 	if(v > speed_upper_bound) {
+		boids[i].next_dx *= speed_upper_bound/v;
+		boids[i].next_dy *= speed_upper_bound/v;
+	}
+
+	if(v < speed_lower_bound) {
+		boids[i].next_dx *= speed_lower_bound/v;
+ 		boids[i].next_dy *= speed_lower_bound/v;
+ 	}
+}
+ 
+// find boids[i].next_... given boids[i].curr_...
+void boid_compute_update(size_t i, size_t nboids, boid boids[nboids]) {
+ 	boid_compute_position(boids + i);
+ 	boid_compute_velocity(i, nboids, boids);
+}
+ 
+// set the boids[i].new... you just found
+void boid_apply_update(boid* boid) {
+ 	boid->curr_x = boid->next_x;
+ 	boid->curr_y = boid->next_y;
+ 	boid->curr_dx = boid->next_dx;
+ 	boid->curr_dy = boid->next_dy;
+}
+ 
+void boids_update_all(size_t nboids, boid boids[nboids]) {
+ 	// coarse (boid level) parallelism, neighbour scan is not parallel
+#pragma omp parallel
+ 	{
+#pragma omp for
+		for(size_t i = 0; i<nboids; ++i)
+			boid_compute_update(i, nboids, boids);
+		// we need this barrier
+
+#pragma omp for
+		for(size_t i = 0; i<nboids; ++i)
+			boid_apply_update(boids + i);
+ 	}
+}
+
+void draw_boid_coords(const float x, const float y,
+					  const float dx, const float dy) {
+	static const float triangle_length=10.5;
+	static const float triangle_width=6.8;
+ 
+	float speed_norm = sqrt((dx*dx) + (dy*dy));
+	float normalized_dx = dx / speed_norm;
+	float normalized_dy = dy / speed_norm;
+ 
+	Vector2 tip = {
+		.x = x + (normalized_dx * triangle_length),
+		.y = y + (normalized_dy * triangle_length),
+	};
+	Vector2 right = {
+		.x = x - (normalized_dy * triangle_width / 2),
+		.y = y + (normalized_dx * triangle_width / 2),
+	};
+	Vector2 left = {
+		.x = x + (normalized_dy * triangle_width / 2),
+		.y = y - (normalized_dx * triangle_width / 2),
+	};
+ 
+	// vertices must be specified in counterclockwise order
+	DrawTriangle(tip, left, right, WHITE);
+}
+ 
+void draw_boid_struct(const boid b) {
+	draw_boid_coords(b.curr_x, b.curr_y, b.curr_dx, b.curr_dy);
+}
+ 
+void boids_draw_all(size_t nboids, boid boids[nboids]) {
+	for(size_t i = 0; i<nboids; ++i) {
+		draw_boid_struct(boids[i]);
+	}
+}
+ 
+int main(int argc, char** argv) {
+	// sets a bunch of global configuration variables used throughout the program
+	parse_args(argc, argv);
+
+	boid boids[num_boids];
+	randomize_boids(num_boids, boids);
+ 
+ 	InitWindow(window_width, window_height, "nomen fenetrae");
+ 	SetTargetFPS(window_fps);
+ 
+ 	while(!WindowShouldClose()) {
+ 		BeginDrawing();
+		ClearBackground(BLACK);
+
+		boids_draw_all(num_boids, boids);
+		boids_update_all(num_boids, boids);
+
+		// make boid simulation adapt to window resizing
+		// updating here avoids weird race conditions
+		window_width = GetScreenWidth();
+		window_height = GetScreenHeight();
+		EndDrawing();
+	}
+
+	CloseWindow();
+	return 0;
+}

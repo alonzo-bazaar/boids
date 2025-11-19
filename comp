@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+fatal() {
+	echo "$1" > /dev/stderr
+	exit 1
+}
+
+raylib_dir=""
+
+if [[ "$(uname)" = "Linux" ]]; then
+	raylib_dir='./raylib-5.5_linux_amd64'
+elif [[ "$(uname)" = "Darwin" ]]; then
+	raylib_dir='./raylib-5.5_macos'
+else
+	fatal "unrecognized uname $(uname)! this script doesn't work with $(uname)!"
+fi
+
+[[ -d "$raylib_dir" ]] ||\
+	fatal "cannot find raylib dir $raylib_dir! raylib must be present in project directory, you can run ./download_raylib to dowload it"
+
+common_build_flags() {
+	echo "-I./include -Wall -Wextra"
+}
+
+omp_build_flags () {
+	if [[ "$(uname)" = "Linux" ]]; then
+		echo "-fopenmp -lomp"
+	elif [[ "$(uname)" = "Darwin" ]]; then
+		echo "-fopenmp -lomp"
+	else
+		fatal "unrecognized uname $(uname)! cannot generate openmp flags for it!"
+	fi
+}
+
+raylib_build_flags() {
+	echo "-I$raylib_dir/include -L$raylib_dir/lib/ -lm -lraylib"
+}
+
+sequential_build_flags() {
+	echo "$(common_build_flags)"
+}
+
+parallel_build_flags() {
+	echo "$(common_build_flags) $(omp_build_flags)"
+}
+
+graphical_build_flags() {
+	echo "$(common_build_flags) $(omp_build_flags) $(raylib_build_flags)"
+}
+
+setup() {
+	ensure_raylib
+	[[ -d './build' ]] || mkdir './build'
+	echo "$1"
+	echo 'output will be found in ./build directory'
+}
+
+# sequential and parallel are both benchmark targets
+# graphical targets are always parallel, there is no sequential graphical target
+
+# here omp bits will do nothing as it will ignore unknown pragmas
+build_sequential_aos() {
+	setup "building array of struct sequential version"
+	cc -o ./build/sequential-aos src/array-of-structs.c $(sequential_build_flags)
+}
+
+build_parallel_aos() {
+	setup "building array of struct parallel version"
+	cc -o ./build/parallel-aos src/array-of-structs.c $(parallel_build_flags)
+}
+
+build_graphical_aos() {
+	setup "building array of struct parallel version"
+	cc -o ./build/parallel-aos src/array-of-structs.c $(graphical_build_flags)
+}
+
+build_sequential_soa() {
+	setup "building array of struct sequential version"
+	cc -o ./build/sequential-soa src/struct-of-arrays.c $(sequential_build_flags)
+}
+
+build_parallel_soa() {
+	setup "building array of struct parallel version"
+	cc -o ./build/parallel-soa src/struct-of-arrays.c $(parallel_build_flags)
+}
+
+build_graphical_soa() {
+	setup "building array of struct parallel version"
+	cc -o ./build/parallel-soa src/struct-of-arrays.c $(graphical_build_flags)
+}
+
+build_graphical_soa
