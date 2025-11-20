@@ -1,27 +1,4 @@
-#include<stdio.h>   // print debugging
-#include<stdlib.h>  // to create random numbers
-#include<limits.h>  // to scale the random number in question
-#include<math.h>    // for sqrt
-
-#include"raylib.h"  // for the graphics
-#include"common.h"
-
-typedef struct {
-	float curr_x; // position read during simulation tick
-	float curr_y;
-	float next_x; // position written during simulation tick
-	float next_y;
-
-	float curr_dx; // velocity read during simulation tick
-	float curr_dy;
-	float next_dx; // velocity written during simulatin tick
-	float next_dy;
-} boid;
-
-float random_uniform(float min, float max) {
-    float random_normalized = (float)random() / (float)INT_MAX;
-    return (random_normalized * (max - min)) + min;
-}
+#include "aos.h"
 
 // randomize initial state of boids
 // (better not to try my luck with parallelizing C random)
@@ -116,8 +93,10 @@ void boid_compute_velocity(size_t i, size_t nboids, boid boids[nboids]) {
 
 	// make boid center itself with respect to its neighbours
 	if(n_neighbours > 0) {
-		boids[i].next_dx += (center_x - boids[i].curr_x) * centering_factor;
-		boids[i].next_dy += (center_y - boids[i].curr_y) * centering_factor;
+		boids[i].next_dx += (center_x - boids[i].curr_x)\
+			* centering_factor;
+		boids[i].next_dy += (center_y - boids[i].curr_y)\
+			* centering_factor;
 	}
 
 	// make boid avoid collisions
@@ -126,8 +105,10 @@ void boid_compute_velocity(size_t i, size_t nboids, boid boids[nboids]) {
 
 	// make boid go at the same speed as its neighbours
 	if(n_neighbours > 0) {
-		boids[i].next_dx += (avg_neigh_dx - boids[i].curr_dx) * speed_match_factor;
-		boids[i].next_dy += (avg_neigh_dy - boids[i].curr_dy) * speed_match_factor;
+		boids[i].next_dx += (avg_neigh_dx - boids[i].curr_dx)\
+			* speed_match_factor;
+		boids[i].next_dy += (avg_neigh_dy - boids[i].curr_dy)\
+			* speed_match_factor;
 	}
 
 	// make boid stay within window bounds
@@ -194,68 +175,4 @@ void boids_update_all(size_t nboids, boid boids[nboids]) {
 		for(size_t i = 0; i<nboids; ++i)
 			boid_apply_update(boids + i);
  	}
-}
-
-void draw_boid_coords(const float x, const float y,
-					  const float dx, const float dy) {
-	static const float triangle_length=10.5;
-	static const float triangle_width=6.8;
- 
-	float speed_norm = sqrt((dx*dx) + (dy*dy));
-	float normalized_dx = dx / speed_norm;
-	float normalized_dy = dy / speed_norm;
- 
-	Vector2 tip = {
-		.x = x + (normalized_dx * triangle_length),
-		.y = y + (normalized_dy * triangle_length),
-	};
-	Vector2 right = {
-		.x = x - (normalized_dy * triangle_width / 2),
-		.y = y + (normalized_dx * triangle_width / 2),
-	};
-	Vector2 left = {
-		.x = x + (normalized_dy * triangle_width / 2),
-		.y = y - (normalized_dx * triangle_width / 2),
-	};
- 
-	// vertices must be specified in counterclockwise order
-	DrawTriangle(tip, left, right, WHITE);
-}
- 
-void draw_boid_struct(const boid b) {
-	draw_boid_coords(b.curr_x, b.curr_y, b.curr_dx, b.curr_dy);
-}
- 
-void boids_draw_all(size_t nboids, boid boids[nboids]) {
-	for(size_t i = 0; i<nboids; ++i) {
-		draw_boid_struct(boids[i]);
-	}
-}
- 
-int main(int argc, char** argv) {
-	// sets a bunch of global configuration variables used throughout the program
-	parse_args(argc, argv);
-
-	boid boids[num_boids];
-	randomize_boids(num_boids, boids);
- 
- 	InitWindow(window_width, window_height, "nomen fenetrae");
- 	SetTargetFPS(window_fps);
- 
- 	while(!WindowShouldClose()) {
- 		BeginDrawing();
-		ClearBackground(BLACK);
-
-		boids_draw_all(num_boids, boids);
-		boids_update_all(num_boids, boids);
-
-		// make boid simulation adapt to window resizing
-		// updating here avoids weird race conditions
-		window_width = GetScreenWidth();
-		window_height = GetScreenHeight();
-		EndDrawing();
-	}
-
-	CloseWindow();
-	return 0;
 }
