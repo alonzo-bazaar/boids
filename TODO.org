@@ -9,7 +9,7 @@
   - [X] ~pragma omp~ pray to god
 - [X] make parallel struct of arrays version ::
 - [ ] fix the random number generation to make simulation reproducible ::
-- [ ] have both a visualization and a "simulation" version of the code ::
+- [ ] have both a visualization and a benchmark version of the code ::
   that is, create a ~common.h~, ~common.c~ for the boid logic
   then add a ~visual_main.c~ and a ~benchmark_main.c~ to either run visualization, or run benchmarking
   - [ ] create a common and a main for both soa and aos
@@ -18,6 +18,7 @@
   create either a json, csv, whatever, to allow for quick fiddling with simulation parameters (especially the number of boids)
   so that we may test simulation performance for various possible starting positions
   without having to rebuild it everytime
+  
   (fixed by adding cli args instead of a config file)
 
 ** compilation  
@@ -25,30 +26,31 @@
   if all else fails, docker
 
 ** benchmarking
-- [ ] create benchmark targets for both sequential and parallel version
+- [ ] create benchmark compilation targets for both sequential and parallel version
   cli args for benchmark version should contain
   - warmup iterations
   - iterations
   - output file
   output file will likely be a csv,
 
-  will probably be pandas-y to aid in analysis and plotting later, header and all,
-  should lazy init the header, benchmark should otherwise just append its trial data to the csv 
-  should probably also dump some omp environment variables to the header, most importantly the number of threads used
-  (remember to strcpy environment variables once you get them because getenv is a doozy in C)  
+csv will probably be pandas-y to aid in later analysis and for the report, so it will have a header and all,
+should lazy init the header, benchmark should create csv with header if it doesn't exist, and otherwise just append its trial data to the csv.
+should probably also dump some omp environment variables to the header, most importantly the omp number of threads used,
+we have ~omp_get_num_threads()~ so shouldn't need to handle lovecraft's dearest ~getenv~ 
 
 ** code quality
 - [ ] find a less brutal way to handle buffer swap in soa version
 - [ ] (soa) make update function less of a monolith
 - [ ] (aos) make update function less of a monolith
-- [ ] create a readme
+- [ ] move global configuration variables in a simulation config struct
+  - [ ] should probably create ~argparse_get_int~ ~argparse_get_float~ ~argparse_get_string~ functions to make that a bit less painful
 
-** report
+** documentation
+- [ ] create a readme
 - [ ] start writing the report
 
 * small ones
 - [X] make boid simulation area change as window size changes 
-  I smell global mutable state, that's gonna be fun :|
-
-  but it should be easy enough if I have the parallel part only run once per frame, can do sequential update once all thread have reached the barrier
+- [ ] allow argparse to accept flags whose sole purpose is existing and don't need to be bound to a value
+  such as ~--help~, ~--quiet~, ~--verbose~, et al.
   

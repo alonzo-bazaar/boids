@@ -3,6 +3,7 @@
 // https://stackoverflow.com/questions/69908418/multiple-definition-of-first-defined-here-on-gcc-10-2-1-but-not-gcc-8-3-0
 // can't have variable definitions in a header like that
 
+int num_threads = 8;
 int num_boids = 100;
 
 int window_width = 1000;
@@ -13,7 +14,7 @@ int window_fps = 60;
 
 #ifdef BOID_BENCHMARK
 int num_warmup_iterations = 100;
-int num_iterations = 200;
+int num_iterations = 2000;
 char* output_file = "./results/benchmark.csv";
 #endif
 

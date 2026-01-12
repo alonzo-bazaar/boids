@@ -1,0 +1,5 @@
+"milliseconds","nboids","nthreads","warmup iterations","timed iterations","neighbourhood radius","safety distance"
+43,100,8,100,1000,75.000000,20.000000
+88,100,8,100,2000,75.000000,20.000000
+3670,100,8,100,2000,75.000000,20.000000
+3670,100,8,100,2000,75.000000,20.000000

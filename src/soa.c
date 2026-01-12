@@ -12,8 +12,8 @@ void random_uniform_array(size_t n_elems, float arr [n_elems],
 // we don't read next_(d)(x|y) at init stage
 // we can leave them uninitialized for now
 void randomize_boids(const size_t n_boids,
-					 float x[n_boids], float y[n_boids],
-					 float dx[n_boids], float dy[n_boids]) {
+					 float  x[restrict n_boids], float  y[restrict n_boids],
+					 float dx[restrict n_boids], float dy[restrict n_boids]) {
 	random_uniform_array(n_boids, x,
 					turnback_margin, window_width - turnback_margin);
 	random_uniform_array(n_boids, y,
@@ -30,10 +30,14 @@ void randomize_boids(const size_t n_boids,
 }
 
 void boids_update(const size_t n_boids,
-				  const float curr_x[n_boids], const float curr_y[n_boids],
-				  const float curr_dx[n_boids], const float curr_dy[n_boids],
-				  float next_x[n_boids], float next_y[n_boids],
-				  float next_dx[n_boids], float next_dy[n_boids]) {
+				  const float  curr_x[restrict n_boids],
+                  const float  curr_y[restrict n_boids],
+				  const float curr_dx[restrict n_boids],
+                  const float curr_dy[restrict n_boids],
+				  float  next_x[restrict n_boids],
+                  float  next_y[restrict n_boids],
+				  float next_dx[restrict n_boids],
+                  float next_dy[restrict n_boids]) {
 	// compute next positions
 #pragma omp parallel
 	{
@@ -181,4 +185,26 @@ void boids_update(const size_t n_boids,
 			}
 		}
 	}
+}
+
+void swapf(float** a, float**b) {
+    float* tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+void soa_iteration(size_t num_boids,
+                   float** curr_x,  float** curr_y,
+                   float** curr_dx, float** curr_dy,
+                   float** next_x,  float** next_y,
+                   float** next_dx, float** next_dy) {
+
+	boids_update(num_boids,
+				 *curr_x, *curr_y, *curr_dx, *curr_dy,
+				 *next_x, *next_y, *next_dx, *next_dy);
+
+    swapf(curr_x,  next_x);
+    swapf(curr_y,  next_y);
+    swapf(curr_dx, next_dx);
+    swapf(curr_dy, next_dy);
 }

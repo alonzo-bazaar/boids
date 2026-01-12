@@ -2,6 +2,8 @@
 #include "global-vars.h"
 
 void bind_boid_vars() {
+	argparse_bind_int("--num-threads", &num_boids,
+                      "number of openmp threads which will be used to run the simulation");
 	argparse_bind_int("--num-boids", &num_boids,
 						"number of boids that will be spawned for the simulation");
 
@@ -20,11 +22,14 @@ void bind_boid_vars() {
 #ifdef BOID_BENCHMARK
 #define SPACE_UNITS "units"
 #define TIME_UNIT "simulation tick"
-	// mildly ugly variable, but having the simulation area params use the window width/height variables
-	// allows us to reuse the update code we had for the graphics version without having to duplicate anything
-	// and we have a more simulation-y name for the command line argument
+	/*
+     * mildly ugly variable reuse, but having the simulation area params
+     * use the window width/height variables allows us to reuse the update code
+     * we had for the graphics version without having to duplicate anything while
+     * still getting a more simulation-y name for the command line argument
+     */
 	argparse_bind_int("--area-width", &window_width, "width (in " SPACE_UNITS ") of simulation area");
-	argparse_bind_int("--area_height", &window_height, "height (in " SPACE_UNITS ") of simulation area");
+	argparse_bind_int("--area-height", &window_height, "height (in " SPACE_UNITS ") of simulation area");
 
 	argparse_bind_int("--num-warmup-iterations", &num_warmup_iterations,
 					  "number of warmup iterations to be done before we start the benchmark");
@@ -68,11 +73,16 @@ void print_help() {
 	argparse_print_flag_help_name("--quiet");
 	puts("\nsimulation options");
 	argparse_print_flag_help_name("--num-boids");
+
 #ifdef BOID_BENCHMARK
 	argparse_print_flag_help_name("--area-width");
 	argparse_print_flag_help_name("--area-height");
-#endif
 
+	puts("\nbenchmark options options");
+	argparse_print_flag_help_name("--num-warmup-iterations");
+	argparse_print_flag_help_name("--num-iterations");
+	argparse_print_flag_help_name("--output-file");
+#endif
 
 #ifdef BOID_GRAPHICS
 	puts("\nwindow options");
@@ -81,27 +91,24 @@ void print_help() {
 	argparse_print_flag_help_name("--window-fps");
 #endif
 
-#ifdef BOID_BENCHMARK
-	puts("\nbenchmark options options");
-	argparse_print_flag_help_name("--num-warmup-iterations");
-	argparse_print_flag_help_name("--num-iterations");
-	argparse_print_flag_help_name("--output-file");
-#endif
-
 	puts("\nturnback options");
 	argparse_print_flag_help_name("--turnback-margin");
 	argparse_print_flag_help_name("--turnback-factor");
+
 	puts("\nneghbourhood matching options");
 	argparse_print_flag_help_name("--neighbour-radius");
 	argparse_print_flag_help_name("--centering-factor");
 	argparse_print_flag_help_name("--speed-match-factor");
+
 	puts("\ncollision avoidance options");
 	argparse_print_flag_help_name("--too-close-radius");
 	argparse_print_flag_help_name("--dont-slam-factor");
+
 	puts("\nspeed limit options");
 	argparse_print_flag_help_name("--speed-upper-bound");
 	argparse_print_flag_help_name("--speed-lower-bound");
 	argparse_print_flag_help_name("--acceleration-upper-bound");
+
 	puts("");
 }
 

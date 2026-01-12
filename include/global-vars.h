@@ -7,7 +7,8 @@
  * between graphical and benchmark versions of the program
  */
 
-extern int num_boids; // number of boids we're gonna spawn
+extern int num_threads; // number of omp threads used
+extern int num_boids;   // number of boids we're gonna spawn
 
 extern int window_width;  // dimensions of raylib window
 extern int window_height;
